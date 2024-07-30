@@ -1,0 +1,40 @@
+stages:
+  - test
+  - build
+  - push
+
+variables:
+  GO_VERSION: "1.21"
+  DOCKER_IMAGE: registry.mycompany.com/myproject/cache
+
+test:
+  stage: test
+  image: golang:${GO_VERSION}
+  script:
+    - go test ./...
+
+build:
+  stage: build
+  image: golang:${GO_VERSION}
+  script:
+    - go build -o cache
+  artifacts:
+    paths:
+      - cache
+
+push_to_registry:
+  stage: push
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD registry.mycompany.com
+  script:
+    - docker build -t $DOCKER_IMAGE:$CI_COMMIT_SHA .
+    - docker push $DOCKER_IMAGE:$CI_COMMIT_SHA
+    - docker tag $DOCKER_IMAGE:$CI_COMMIT_SHA $DOCKER_IMAGE:latest
+    - docker push $DOCKER_IMAGE:latest
+  only:
+    - main
